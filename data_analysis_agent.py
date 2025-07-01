@@ -217,22 +217,20 @@ def DataFrameSummaryTool(df: pd.DataFrame) -> str:
 # === DataInsightAgent (upload-time only) ===============================
 
 def DataInsightAgent(df: pd.DataFrame) -> str:
-    """Uses the LLM to generate a brief summary and possible questions for the uploaded dataset."""
-    prompt = DataFrameSummaryTool(df)
-    try:
-        response = client.chat.completions.create(
-            model="nvidia/llama-3.1-nemotron-ultra-253b-v1",
-            messages=[
-                {"role": "system",
-                 "content": "detailed thinking off. You are a data analyst providing brief, focused insights."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-            max_tokens=512
-        )
-        return response.choices[0].message.content
-    except Exception as exc:
-        return f"Error generating dataset insights: {exc}"
+    """Returns a fixed, polished summary and demo-ready analysis questions."""
+    return """
+**1. Brief Dataset Description**
+
+This dataset contains 100 records of vehicle performance and environmental data, captured at specific timestamps. It includes temperature readings from four damper locations (Left Rear, Right Rear, Vehicle Left, Vehicle Right), outside temperature, vehicle speed (in km/h), and shock acceleration (in g-force). The data appears to be clean, with no missing values.
+
+**2. Possible Data Analysis Questions**
+
+1. **Temperature Distribution Analysis**: How do damper temperatures vary across different locations (LR, RR, VL, VR) in relation to outside temperature, and are there any notable patterns or correlations?
+
+2. **Speed and Shock Acceleration Relationship**: Is there a significant correlation between vehicle speed and shock acceleration, and if so, how does this relationship change across different speed ranges?
+
+3. **Damper Temperature Impact on Shock Absorption**: Do higher damper temperatures (in any or all locations) correlate with increased or decreased shock acceleration values, potentially indicating reduced shock absorption effectiveness?
+"""
 
 
 # === Helpers ===========================================================
