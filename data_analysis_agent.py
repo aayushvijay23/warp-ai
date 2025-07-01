@@ -247,7 +247,7 @@ def extract_first_code_block(text: str) -> str:
 
 def load_data_from_csv() -> pd.DataFrame:
     """Load data from a local CSV file into a DataFrame."""
-    file_path = "data/dummy_vehicle_endurance_data.csv"  # Change to the actual path of your CSV
+    file_path = "dummy_vehicle_endurance_data.csv"  # Change to the actual path of your CSV
     df = pd.read_csv(file_path)
     return df
 
