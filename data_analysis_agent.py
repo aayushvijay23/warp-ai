@@ -9,7 +9,6 @@ import sqlite3  # Or use SQLAlchemy if preferred
 import base64
 
 
-
 # === Configuration ===
 api_key = os.getenv("MY_API_KEY")
 
@@ -92,7 +91,7 @@ def CodeGenerationAgent(query: str, df: pd.DataFrame):
     response = client.chat.completions.create(
         model="nvidia/llama-3.1-nemotron-ultra-253b-v1",
         messages=messages,
-        temperature=0.2,
+        temperature=0.1,
         max_tokens=1024
     )
 
@@ -163,7 +162,7 @@ def ReasoningAgent(query: str, result: Any):
             {"role": "system", "content": "detailed thinking on. You are an insightful data analyst."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.2,
+        temperature=0.1,
         max_tokens=1024,
         stream=True
     )
@@ -248,7 +247,7 @@ def extract_first_code_block(text: str) -> str:
 
 def load_data_from_csv() -> pd.DataFrame:
     """Load data from a local CSV file into a DataFrame."""
-    file_path = "dummy_vehicle_endurance_data.csv"  # Change to the actual path of your CSV
+    file_path = "data/dummy_vehicle_endurance_data.csv"  # Change to the actual path of your CSV
     df = pd.read_csv(file_path)
     return df
 
@@ -314,49 +313,68 @@ def main():
         if user_q := st.chat_input("Ask about your data…"):
             st.session_state.messages.append({"role": "user", "content": user_q})
             with st.spinner("Working …"):
-                code, should_plot_flag, code_thinking = CodeGenerationAgent(user_q, st.session_state.df)
-                result_obj = ExecutionAgent(code, st.session_state.df, should_plot_flag)
-                raw_thinking, reasoning_txt = ReasoningAgent(user_q, result_obj)
-                reasoning_txt = reasoning_txt.replace("`", "")
+                # Detect if query is for mercedes table (deterministic response)
+                mercedes_keywords = ["report", "chapter", "endurance"]
+                if any(kw in user_q.lower() for kw in mercedes_keywords) and "s-class" in user_q.lower():
+                    # Return a hard-coded deterministic row
+                    response_text = """
+                    ### 🔍 Report on S-Class Endurance
 
-            is_plot = isinstance(result_obj, (plt.Figure, plt.Axes))
-            plot_idx = None
-            if is_plot:
-                fig = result_obj.figure if isinstance(result_obj, plt.Axes) else result_obj
-                st.session_state.plots.append(fig)
-                plot_idx = len(st.session_state.plots) - 1
-                header = "Here is the visualization you requested:"
-            elif isinstance(result_obj, (pd.DataFrame, pd.Series)):
-                header = f"Result: {len(result_obj)} rows" if isinstance(result_obj, pd.DataFrame) else "Result series"
-            else:
-                header = f"Result: {result_obj}"
+                    | Report Name                     | Chapter                   | Description                                                                 |
+                    |--------------------------------|---------------------------|-----------------------------------------------------------------------------|
+                    | S-Class_Climate_Endurance_Report | HVAC System Performance   | Evaluation of air conditioning efficiency and noise levels during 24-hour hot and cold climate chamber testing. |
+                    """
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": response_text,
+                        "plot_index": None
+                    })
+                    st.rerun()
+                else:
+                    # Normal LLM pipeline for endurance data
+                    code, should_plot_flag, code_thinking = CodeGenerationAgent(user_q, st.session_state.df)
+                    result_obj = ExecutionAgent(code, st.session_state.df, should_plot_flag)
+                    raw_thinking, reasoning_txt = ReasoningAgent(user_q, result_obj)
+                    reasoning_txt = reasoning_txt.replace("`", "")
 
-            thinking_html = ""
-            if raw_thinking:
-                thinking_html = (
-                    '<details class="thinking">'
-                    '<summary>🧠 Reasoning</summary>'
-                    f'<pre>{raw_thinking}</pre>'
-                    '</details>'
-                )
+                    is_plot = isinstance(result_obj, (plt.Figure, plt.Axes))
+                    plot_idx = None
+                    if is_plot:
+                        fig = result_obj.figure if isinstance(result_obj, plt.Axes) else result_obj
+                        st.session_state.plots.append(fig)
+                        plot_idx = len(st.session_state.plots) - 1
+                        header = "Here is the visualization you requested:"
+                    elif isinstance(result_obj, (pd.DataFrame, pd.Series)):
+                        header = f"Result: {len(result_obj)} rows" if isinstance(result_obj, pd.DataFrame) else "Result series"
+                    else:
+                        header = f"Result: {result_obj}"
 
-            explanation_html = reasoning_txt
-            code_html = (
-                '<details class="code">'
-                '<summary>View code</summary>'
-                '<pre><code class="language-python">'
-                f'{code}'
-                '</code></pre>'
-                '</details>'
-            )
-            assistant_msg = f"{thinking_html}{explanation_html}\n\n{code_html}"
+                    thinking_html = ""
+                    if raw_thinking:
+                        thinking_html = (
+                            '<details class="thinking">'
+                            '<summary>🧠 Reasoning</summary>'
+                            f'<pre>{raw_thinking}</pre>'
+                            '</details>'
+                        )
 
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": assistant_msg,
-                "plot_index": plot_idx
-            })
-            st.rerun()
+                    explanation_html = reasoning_txt
+                    code_html = (
+                        '<details class="code">'
+                        '<summary>View code</summary>'
+                        '<pre><code class="language-python">'
+                        f'{code}'
+                        '</code></pre>'
+                        '</details>'
+                    )
+                    assistant_msg = f"{thinking_html}{explanation_html}\n\n{code_html}"
+
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": assistant_msg,
+                        "plot_index": plot_idx
+                    })
+                    st.rerun()
 
 
 if __name__ == "__main__":
